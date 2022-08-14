@@ -7,7 +7,8 @@ from tqdm import tqdm
 from utils import get_time_window, load_inside_ip_set
 
 
-def save_stats(test_netflow_dir_list, config):
+def save_stats(config):
+    test_netflow_dir_list = config['test_netflow_dir_list']
     outcome_dir_path = config['outcome_dir_path']
     inside_list_path = config['inside_list_path']
     time_window = config['time_window']
@@ -24,7 +25,7 @@ def save_stats(test_netflow_dir_list, config):
 
     inside_ip_set = load_inside_ip_set(inside_list_path)
     score_df = []
-    for test_netflow_dir in tqdm(test_netflow_dir_list, desc="calculating results", ascii=True, file=sys.stdout):
+    for test_netflow_dir in tqdm(test_netflow_dir_list, desc="loading results for statistics", ascii=True, file=sys.stdout):
         for file_name in os.listdir(test_netflow_dir):
             file_path = os.path.join(test_netflow_dir, file_name)
             current_df = pd.read_csv(file_path)

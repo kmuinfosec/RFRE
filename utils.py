@@ -16,7 +16,6 @@ np.random.seed(0)
 random.seed(0)
 
 
-
 def get_column_idx_table(column_line, netflow_column_map_path):
     column_idx_table = {}
     user_column_map = get_user_column_map(netflow_column_map_path)
@@ -138,7 +137,7 @@ def get_config(outcome_name):
         'test_netflow_dir_list': test_netflow_dir_list,
         'time_window': 300,
         'interface': 32,
-        'epochs': 200,
+        'epochs': 250,
         'batch_size': 256
     }
     return config
