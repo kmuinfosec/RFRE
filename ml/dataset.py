@@ -1,22 +1,24 @@
 import torch
+import numpy as np
 from torch.utils.data.dataloader import Dataset
+from typing import List
 
 
-class CustomDataset(Dataset):
+class RFREDataset(Dataset):
 
-    def __init__(self, rfre_feature_table: dict, group_key_list: list):
-        super(CustomDataset, self).__init__()
-        self.rfre_feature_table = rfre_feature_table
-        self.group_key_list = group_key_list
+    def __init__(self, rfre_feature_matrix: List[np.ndarray], target_ip_list: List[str]):
+        super(RFREDataset, self).__init__()
+        self.rfre_feature_matrix = rfre_feature_matrix
+        self.target_ip_list = target_ip_list
 
     def __len__(self):
-        return len(self.group_key_list)
+        return len(self.target_ip_list)
 
     def __getitem__(self, idx):
         feature_vector = []
-        for k in self.rfre_feature_table.keys():
-            feature_vector.append(self.rfre_feature_table[k][idx])
+        for feature_column in self.rfre_feature_matrix:
+            feature_vector.append(feature_column[idx])
 
         x = torch.FloatTensor(feature_vector)
 
-        return x, self.group_key_list[idx]
+        return x, self.target_ip_list[idx]

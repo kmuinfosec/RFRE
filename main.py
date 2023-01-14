@@ -1,62 +1,66 @@
 import os
-import sys
 import torch
-from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from component import ip_profiling, features, rfre
-from ml.dataset import CustomDataset
-from ml.train import trainer
+from config import Config
+from component.ip_profiling import Profiler
+from component.feature import FeatureExtractor
+from component import rfre
+from ml.dataset import RFREDataset
+from ml.train import trainer, tester
 from experiments.stats import save_stats
 from experiments.scatter import draw_rce_scatter
-from utils import get_config, format_date
+from utils import TQDM
 
 
-def train(config):
-    netflow_group_table, column_idx_table = ip_profiling.profile(config, config['train_netflow_dir'], train_mode=True)
-    original_feature_table, group_key_list = features.extract(netflow_group_table, column_idx_table, config['interface'])
-    rfre_feature_table = rfre.encode(original_feature_table, config['outcome_dir_path'])
+def train(config: Config):
+    print("############################")
+    print("#    start train phase     #")
+    print("############################")
+    profiler = Profiler(config)
+    fe = FeatureExtractor()
 
-    dataset = CustomDataset(rfre_feature_table, group_key_list)
-    dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
-    trainer(dataloader, config['epochs'], config['outcome_dir_path'])
+    for train_dir in config.train_dir_list:
+        profiler.profile(train_dir, benign_only=True)
+        for profile in TQDM(profiler, desc='extract features from profiles'):
+            fe.extract(profile)
+
+    rfre_feature_matrix = rfre.encode(fe.feature_matrix, fe.feature_list, config.outcome_dir)
+    dataset = RFREDataset(rfre_feature_matrix, fe.profile_key_list)
+    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
+    trainer(config, dataloader)
 
 
-def test(config):
-    with open(os.path.join(config['outcome_dir_path'], 'model.pth'), 'rb') as f:
+def test(config: Config):
+    print("############################")
+    print("# start test phase  #######")
+    print("############################")
+    with open(config.model_path, 'rb') as f:
         model = torch.load(f).eval()
 
-    for test_netflow_dir in config['test_netflow_dir_list']:
-        print("\nstart testing \"{}\" directory".format(test_netflow_dir))
-        netflow_group_table, column_idx_table = ip_profiling.profile(config, test_netflow_dir)
-        original_feature_table, group_key_list = features.extract(netflow_group_table, column_idx_table, config['interface'])
-        rfre_feature_table = rfre.encode(original_feature_table, config['outcome_dir_path'])
+    for test_dir in config.test_dir_list:
+        print(f"\nCurrent testing -> \"{test_dir}\"")
+        profiler = Profiler(config)
+        profiler.profile(test_dir)
 
-        dataset = CustomDataset(rfre_feature_table, group_key_list)
-        dataloader = DataLoader(dataset, batch_size=config['batch_size'])
+        fe = FeatureExtractor()
+        for profile in TQDM(profiler, desc='extract features from profiles'):
+            fe.extract(profile)
 
-        result_csv = ['key,rce']
-        with torch.inference_mode():
-            for batch, group_key_batch in tqdm(dataloader, ascii=True, file=sys.stdout, desc="testing"):
-                recons = model(batch)
-                rces = model.mse(batch, recons, reduction='none')
-                for i in range(len(rces)):
-                    rce = rces[i].item()
-                    key = group_key_batch[i]
-                    result_csv.append(",".join([key, str(rce)]))
+        rfre_feature_matrix = rfre.encode(fe.feature_matrix, fe.feature_list, config.outcome_dir)
+        dataset = RFREDataset(rfre_feature_matrix, fe.profile_key_list)
+        dataloader = DataLoader(dataset, batch_size=config.batch_size)
 
-        result_dir_path = os.path.join(config['outcome_dir_path'], 'result')
-        if not os.path.isdir(result_dir_path):
-            os.mkdir(result_dir_path)
-        result_csv_path = os.path.join(result_dir_path, os.path.split(test_netflow_dir)[1]+".csv")
+        result_csv = tester(model, dataloader)
+        result_csv_path = os.path.join(config.result_dir, os.path.split(test_dir)[1] + ".csv")
         with open(result_csv_path, 'w') as f:
             for line in result_csv:
-                f.write(line+"\n")
+                f.write(line + "\n")
 
 
 if __name__ == '__main__':
-    config = get_config(format_date(6))
-    train(config)
-    test(config)
-    save_stats(config)
-    draw_rce_scatter(config)
+    _config = Config('CICIDS2017')
+    train(_config)
+    test(_config)
+    save_stats(_config)
+    draw_rce_scatter(_config)

@@ -1,9 +1,9 @@
 import os
-import sys
 import pandas as pd
+from config import Config
 from matplotlib import pyplot as plt
-from tqdm import tqdm
-from utils import load_inside_ip_set, get_time_window
+from utils import get_time_window, TQDM
+
 
 FONT_SIZE = 30
 POINT_SIZE = 100
@@ -11,27 +11,25 @@ NUM_COLORS = 20
 cm = plt.get_cmap('tab20')
 
 
-def load_result_df(test_netflow_dir_list, outcome_dir_path, inside_list_path, time_window):
+def load_result_df(config: Config):
     result_info = {}
-    result_dir_path = os.path.join(outcome_dir_path, 'result')
-    for file_name in os.listdir(result_dir_path):
-        result_csv_path = os.path.join(result_dir_path, file_name)
+    for file_name in os.listdir(config.result_dir):
+        result_csv_path = os.path.join(config.result_dir, file_name)
         test_df = pd.read_csv(result_csv_path)
         for row in test_df.itertuples():
             key = row.key
             rce = row.rce
             result_info[key] = {'rce': rce, 'label': {}}
 
-    inside_ip_set = load_inside_ip_set(inside_list_path)
-    for test_netflow_dir in tqdm(test_netflow_dir_list, desc="loading results for plotting", ascii=True, file=sys.stdout):
+    for test_netflow_dir in TQDM(config.test_dir_list, desc="loading results for plotting"):
         for file_name in os.listdir(test_netflow_dir):
             file_path = os.path.join(test_netflow_dir, file_name)
             current_df = pd.read_csv(file_path)
             for row in current_df.itertuples():
-                window_start, window_end = get_time_window(row.ts, time_window)
-                if row.sa in inside_ip_set:
+                window_start, window_end = get_time_window(row.ts, config.time_window)
+                if row.sa in config.inside_ip_set:
                     key_ip = row.da
-                elif row.da in inside_ip_set:
+                elif row.da in config.inside_ip_set:
                     key_ip = row.sa
                 else:
                     continue
@@ -60,14 +58,10 @@ def load_result_df(test_netflow_dir_list, outcome_dir_path, inside_list_path, ti
     return result_df
 
 
-def draw_rce_scatter(config: dict):
-    test_netflow_dir_list = config['test_netflow_dir_list']
-    outcome_dir_path = config['outcome_dir_path']
-    inside_list_path = config['inside_list_path']
-    time_window = config['time_window']
-    result_df = load_result_df(test_netflow_dir_list, outcome_dir_path, inside_list_path, time_window)
+def draw_rce_scatter(config: Config):
+    result_df = load_result_df(config)
 
-    with open(os.path.join(outcome_dir_path, 'threshold.txt'), 'r') as f:
+    with open(config.threshold_path, 'r') as f:
         threshold = float(f.readlines()[-1].strip())
 
     fig = plt.figure(figsize=(16, 9))
@@ -88,5 +82,5 @@ def draw_rce_scatter(config: dict):
     plt.yticks(fontsize=FONT_SIZE)
     plt.legend(fontsize=18, loc='upper left', ncol=2)
     plt.tight_layout()
-    plt.savefig(f"{outcome_dir_path}/scatter_plot.png")
+    plt.savefig(f"{config.outcome_dir}/scatter_plot.png")
     plt.clf()
