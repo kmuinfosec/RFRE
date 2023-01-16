@@ -6,6 +6,8 @@ from tqdm import tqdm
 from sklearn.mixture import BayesianGaussianMixture
 from typing import List
 
+from config import Config
+
 
 class RelativeFrequencyRankEncoder:
 
@@ -53,11 +55,10 @@ class RelativeFrequencyRankEncoder:
         return self.transform(data)
 
 
-def vgm_clustering(feature_matrix: List[list], feature_list: List[str], outcome_dir: str) -> List[np.ndarray]:
-    vgm_table_path = os.path.join(outcome_dir, 'vgm_table.pkl')
+def vgm_clustering(feature_matrix: List[list], feature_list: List[str], vgm_path: str) -> List[np.ndarray]:
     vgm_table = {}
-    if os.path.isfile(vgm_table_path):
-        with open(vgm_table_path, 'rb') as f:
+    if os.path.isfile(vgm_path):
+        with open(vgm_path, 'rb') as f:
             vgm_table = pickle.load(f)
 
     vgm_feature_matrix = []
@@ -74,19 +75,17 @@ def vgm_clustering(feature_matrix: List[list], feature_list: List[str], outcome_
         pred = vgm.predict(feature_column)
         vgm_feature_matrix.append(pred)
 
-    if not os.path.isfile(vgm_table_path):
-        with open(vgm_table_path, 'wb') as f:
+    if not os.path.isfile(vgm_path):
+        with open(vgm_path, 'wb') as f:
             pickle.dump(vgm_table, f)
 
     return vgm_feature_matrix
 
 
-def rfre_encoding(vgm_feature_matrix: List[np.ndarray], feature_list: List[str], outcome_dir: str) -> List[np.ndarray]:
-
-    rfre_encoder_table_path = os.path.join(outcome_dir, 'rfre_encder_table.pkl')
+def rfre_encoding(vgm_feature_matrix: List[np.ndarray], feature_list: List[str], rfre_encoder_path: str) -> List[np.ndarray]:
     rfre_encoder_table = {}
-    if os.path.isfile(rfre_encoder_table_path):
-        with open(rfre_encoder_table_path, 'rb') as f:
+    if os.path.isfile(rfre_encoder_path):
+        with open(rfre_encoder_path, 'rb') as f:
             rfre_encoder_table = pickle.load(f)
 
     rfre_feature_matrix = []
@@ -98,14 +97,14 @@ def rfre_encoding(vgm_feature_matrix: List[np.ndarray], feature_list: List[str],
         rfre_encoder = rfre_encoder_table[feature]
         rfre_feature_matrix.append(rfre_encoder.transform(vgm_feature_matrix[i]))
 
-    if not os.path.isfile(rfre_encoder_table_path):
-        with open(rfre_encoder_table_path, 'wb') as f:
+    if not os.path.isfile(rfre_encoder_path):
+        with open(rfre_encoder_path, 'wb') as f:
             pickle.dump(rfre_encoder_table, f)
 
     return rfre_feature_matrix
 
 
-def encode(feature_matrix: List[list], feature_list: List[str], outcome_dir: str) -> List[np.ndarray]:
-    vgm_feature_matrix = vgm_clustering(feature_matrix, feature_list, outcome_dir)
-    rfre_feature_matrix = rfre_encoding(vgm_feature_matrix, feature_list, outcome_dir)
+def encode(feature_matrix: List[list], feature_list: List[str], config: Config) -> List[np.ndarray]:
+    vgm_feature_matrix = vgm_clustering(feature_matrix, feature_list, config.path.vgm_path)
+    rfre_feature_matrix = rfre_encoding(vgm_feature_matrix, feature_list, config.path.rfre_encoder_path)
     return rfre_feature_matrix

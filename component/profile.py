@@ -15,14 +15,6 @@ class Profile:
         'opposite_bytes': lambda x: int(float(x))
     }
 
-    attr_map = {'target_ip': 'dip', 'target_port': 'dport', 'opposite_ip': 'sip', 'opposite_port': 'sport',
-                'duration': 'duration', 'target_pkts': 'out_packets', 'opposite_pkts': 'in_packets',
-                'target_bytes': 'out_bytes', 'opposite_bytes': 'in_bytes'}
-
-    attr_map_inv = {'target_ip': 'sip', 'target_port': 'sport', 'opposite_ip': 'dip', 'opposite_port': 'dport',
-                    'duration': 'duration', 'target_pkts': 'in_packets', 'opposite_pkts': 'out_packets',
-                    'target_bytes': 'in_bytes', 'opposite_bytes': 'out_bytes'}
-
     def __init__(self, profile_key):
         self.__profile_key = profile_key
         self.__flow_cnt = 0
@@ -30,41 +22,41 @@ class Profile:
         for attr in self.attr_list:
             self.__table[attr] = []
 
-    def add(self, flow, column_idx_map, by_src=True):
-        target_map = self.attr_map if by_src else self.attr_map_inv
-        for attr, column in target_map.items():
-            value = self.attr_typing_map[attr](flow[column_idx_map[column]])
+    def add(self, attr_dict: dict):
+        for attr in self.attr_list:
+            value = self.attr_typing_map[attr](attr_dict[attr])
             self.__table[attr].append(value)
         self.__flow_cnt += 1
 
-    def print_attr(self):
-        print(", ".join(self.attr_list))
+    def attr_info(self) -> str:
+        return ",".join(self.attr_list) + '\n'
 
-    def print_row(self, idx: int):
+    def row_info(self, idx: int) -> str:
         print_row_values = []
         for attr in self.attr_list:
             print_row_values.append(str(self.__table[attr][idx]))
-        print(", ".join(print_row_values))
+        return ", ".join(print_row_values) + '\n'
 
-    def print_all(self):
-        self.print_attr()
-        for i in range(self.__flow_cnt):
-            self.print_row(i)
+    def __str__(self) -> str:
+        ret_str = self.attr_info()
+        for idx in range(self.__flow_cnt):
+            ret_str += self.row_info(idx)
+        return ret_str
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.table)
 
-    def __getitem__(self, attr):
+    def __getitem__(self, attr) -> list:
         return self.table[attr]
 
     @property
-    def table(self):
+    def table(self) -> dict:
         return self.__table
 
     @property
-    def profile_key(self):
+    def profile_key(self) -> str:
         return self.__profile_key
 
     @property
-    def target_ip(self):
-        return self.table['target_ip'][0]
+    def target_ip(self) -> str:
+        return self.profile_key.split('_')[0]

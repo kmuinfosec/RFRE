@@ -1,0 +1,6 @@
+[COMMON]
+profiling_target=dip
+time_window=300
+interface=32
+epochs=250
+batch_size=256

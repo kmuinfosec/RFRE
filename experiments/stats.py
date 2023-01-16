@@ -8,8 +8,8 @@ from utils import get_time_window, TQDM
 
 def save_stats(config: Config):
     key_rce_dict = {}
-    for file_name in os.listdir(config.result_dir):
-        result_csv_path = os.path.join(config.result_dir, file_name)
+    for file_name in os.listdir(config.path.result_dir):
+        result_csv_path = os.path.join(config.path.result_dir, file_name)
         test_df = pd.read_csv(result_csv_path)
         for row in test_df.itertuples():
             key = row.key
@@ -35,11 +35,11 @@ def save_stats(config: Config):
                 label = row.Label
                 score_df.append([key, score, label])
     score_df = pd.DataFrame(score_df, columns=['key', 'rce', 'label'])
-    save_auc(score_df, config.outcome_dir)
-    save_eval(score_df, config.outcome_dir)
+    save_auc(score_df, config.path.auroc_path, config.path.roc_curve_path)
+    save_eval(score_df, config.path.threshold_path, config.path.eval_path)
 
 
-def save_auc(test_df, outcome_dir):
+def save_auc(test_df, auroc_path, roc_curve_path):
     auc_csv = ['label,auc']
     test_df.loc[test_df['label'].str.startswith('BruteForce'), 'label'] = 'BruteForce-SSH'
     for label in test_df['label'].unique():
@@ -61,13 +61,13 @@ def save_auc(test_df, outcome_dir):
     total_df.loc[total_df['label'].str.lower() == 'benign', 'label'] = 0
     fpr_list, tpr_list, threshold_list = roc_curve(total_df['label'].astype(int), total_df['rce'])
     auc_csv.append(f"total,{auc(fpr_list, tpr_list)}")
-    plot_roc_curve(fpr_list, tpr_list, outcome_dir)
+    plot_roc_curve(fpr_list, tpr_list, roc_curve_path)
 
-    with open(os.path.join(outcome_dir, "auc.csv"), 'w', encoding='latin1') as f:
+    with open(auroc_path, 'w', encoding='latin1') as f:
         f.write("\n".join(auc_csv))
 
 
-def plot_roc_curve(fpr, tpr, outcome_dir):
+def plot_roc_curve(fpr, tpr, roc_curve_path):
     font_size = 30
     fig = plt.figure(figsize=(16, 9))
     plt.plot(fpr, tpr, color='red', label='ROC')
@@ -76,12 +76,12 @@ def plot_roc_curve(fpr, tpr, outcome_dir):
     plt.ylabel('True Positive Rate', fontsize=font_size)
     plt.title('Receiver Operating Characteristic Curve', fontsize=font_size)
     plt.legend(fontsize=font_size)
-    plt.savefig(os.path.join(outcome_dir, 'auroc.jpg'), dpi=300)
+    plt.savefig(roc_curve_path, dpi=300)
     plt.clf()
 
 
-def save_eval(test_df, outcome_dir):
-    with open(os.path.join(outcome_dir, 'threshold.txt'), 'r') as f:
+def save_eval(test_df, threshold_path, eval_path):
+    with open(threshold_path, 'r') as f:
         threshold = float(f.readlines()[-1])
 
     detected_df = test_df[test_df['rce'] >= threshold]
@@ -107,5 +107,5 @@ def save_eval(test_df, outcome_dir):
     eval_csv = ['tp,fp,tn,fn,acc,pre,rec,f1']
     eval_csv.append(f"{tp},{fp},{tn},{fn},{acc},{pre},{rec},{f1}")
 
-    with open(os.path.join(outcome_dir, 'eval.csv'), 'w') as f:
+    with open(eval_path, 'w') as f:
         f.write("\n".join(eval_csv))

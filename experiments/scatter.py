@@ -61,7 +61,7 @@ def load_result_df(config: Config):
 def draw_rce_scatter(config: Config):
     result_df = load_result_df(config)
 
-    with open(config.threshold_path, 'r') as f:
+    with open(config.path.threshold_path, 'r') as f:
         threshold = float(f.readlines()[-1].strip())
 
     fig = plt.figure(figsize=(16, 9))
@@ -82,5 +82,5 @@ def draw_rce_scatter(config: Config):
     plt.yticks(fontsize=FONT_SIZE)
     plt.legend(fontsize=18, loc='upper left', ncol=2)
     plt.tight_layout()
-    plt.savefig(f"{config.outcome_dir}/scatter_plot.png")
+    plt.savefig(config.path.scatter_plot_path)
     plt.clf()

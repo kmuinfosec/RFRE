@@ -71,19 +71,21 @@ class FeatureExtractor:
         ret_str = ''
         if profile_key:
             ret_str += 'profile_key,'
-        ret_str += ','.join(self.feature_list)
-        ret_str += '\n'
+        ret_str += ','.join(self.feature_list) + '\n'
+        return ret_str
+
+    def __str_feature_vector(self, index: int) -> str:
+        ret_str = ''
+        feature_vector = []
+        for j, feature in enumerate(self.feature_list):
+            feature_vector.append(str(self.feature_matrix[j][index]))
+        ret_str += ','.join(feature_vector) + '\n'
         return ret_str
 
     def __str__(self):
-        ret_str = '' + self.__str_feature_list(profile_key=True)
+        ret_str = self.__str_feature_list(profile_key=True)
         for i, profile_key in enumerate(self.__profile_key_list):
-            ret_str += profile_key+','
-            feature_vector = []
-            for j, feature in enumerate(self.feature_list):
-                feature_vector.append(str(self.feature_matrix[j][i]))
-            ret_str += ','.join(feature_vector)
-            ret_str += '\n'
+            ret_str += profile_key+','+self.__str_feature_vector(i)
         return ret_str
 
     @property

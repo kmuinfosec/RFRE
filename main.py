@@ -25,7 +25,7 @@ def train(config: Config):
         for profile in TQDM(profiler, desc='extract features from profiles'):
             fe.extract(profile)
 
-    rfre_feature_matrix = rfre.encode(fe.feature_matrix, fe.feature_list, config.outcome_dir)
+    rfre_feature_matrix = rfre.encode(fe.feature_matrix, fe.feature_list, config)
     dataset = RFREDataset(rfre_feature_matrix, fe.profile_key_list)
     dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
     trainer(config, dataloader)
@@ -35,7 +35,7 @@ def test(config: Config):
     print("############################")
     print("# start test phase  #######")
     print("############################")
-    with open(config.model_path, 'rb') as f:
+    with open(config.path.model_path, 'rb') as f:
         model = torch.load(f).eval()
 
     for test_dir in config.test_dir_list:
@@ -47,12 +47,12 @@ def test(config: Config):
         for profile in TQDM(profiler, desc='extract features from profiles'):
             fe.extract(profile)
 
-        rfre_feature_matrix = rfre.encode(fe.feature_matrix, fe.feature_list, config.outcome_dir)
+        rfre_feature_matrix = rfre.encode(fe.feature_matrix, fe.feature_list, config)
         dataset = RFREDataset(rfre_feature_matrix, fe.profile_key_list)
         dataloader = DataLoader(dataset, batch_size=config.batch_size)
 
         result_csv = tester(model, dataloader)
-        result_csv_path = os.path.join(config.result_dir, os.path.split(test_dir)[1] + ".csv")
+        result_csv_path = os.path.join(config.path.result_dir, os.path.split(test_dir)[1] + ".csv")
         with open(result_csv_path, 'w') as f:
             for line in result_csv:
                 f.write(line + "\n")

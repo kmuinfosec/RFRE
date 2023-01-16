@@ -28,10 +28,10 @@ def trainer(config: Config, dataloader: DataLoader):
             pbar.set_postfix(epoch=f"{e + 1} of {config.epochs}", loss=f"{loss_per_batch[-1]:.5f}")
         loss_history.append(np.mean(loss_per_batch))
 
-    with open(config.model_path, 'wb') as f:
+    with open(config.path.model_path, 'wb') as f:
         torch.save(model, f)
 
-    with open(config.model_txt_path, 'w') as f:
+    with open(config.path.model_txt_path, 'w') as f:
         f.write(str(model) + '\n')
 
     with torch.inference_mode():
@@ -44,7 +44,7 @@ def trainer(config: Config, dataloader: DataLoader):
 
     threshold = np.percentile(sorted(evaluation_rce_list), 100)
 
-    with open(config.threshold_path, 'w') as f:
+    with open(config.path.threshold_path, 'w') as f:
         f.write(str(threshold)+"\n")
 
 
