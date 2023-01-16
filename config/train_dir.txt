@@ -1,2 +1,5 @@
 [CICIDS2017]
 D:\new_cicids\3
+
+[ISCX2012]
+D:\iscx\train

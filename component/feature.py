@@ -67,11 +67,33 @@ class FeatureExtractor:
             self.__feature_matrix[i].append(FeatureExtractor.feature_func_map[feature](profile))
         self.__profile_key_list.append(profile.profile_key)
 
-    def __str_feature_list(self, profile_key=False):
+    def debug(self) -> str:
+        ret_str = self.__str_feature_list(profile_key=True) + '\n'
+        for i, profile_key in enumerate(self.__profile_key_list):
+            ret_str += profile_key+','+self.__str_feature_vector(i) + '\n'
+        return ret_str
+
+    def get_info(self, num_vectors=5) -> str:
+        ret_str = '####################################################################################\n'
+        ret_str += '# Feature Info (total vectors: {})\n'.format(len(self.profile_key_list))
+        ret_str += '# \n'
+        ret_str += '# Feature list\n'
+        ret_str += '# {}\n'.format(self.__str_feature_list())
+        ret_str += '# \n'
+        ret_str += '# First {} vectors\n'.format(num_vectors)
+        for i in range(num_vectors):
+            ret_str += '# {}\n'.format(self.__str_feature_vector(i))
+        ret_str += '####################################################################################\n'
+        return ret_str
+
+    def __str__(self) -> str:
+        return self.get_info()
+
+    def __str_feature_list(self, profile_key=False) -> str:
         ret_str = ''
         if profile_key:
             ret_str += 'profile_key,'
-        ret_str += ','.join(self.feature_list) + '\n'
+        ret_str += ','.join(self.feature_list)
         return ret_str
 
     def __str_feature_vector(self, index: int) -> str:
@@ -79,13 +101,7 @@ class FeatureExtractor:
         feature_vector = []
         for j, feature in enumerate(self.feature_list):
             feature_vector.append(str(self.feature_matrix[j][index]))
-        ret_str += ','.join(feature_vector) + '\n'
-        return ret_str
-
-    def __str__(self):
-        ret_str = self.__str_feature_list(profile_key=True)
-        for i, profile_key in enumerate(self.__profile_key_list):
-            ret_str += profile_key+','+self.__str_feature_vector(i)
+        ret_str += ','.join(feature_vector)
         return ret_str
 
     @property

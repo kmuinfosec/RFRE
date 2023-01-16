@@ -3,3 +3,6 @@ D:\new_cicids\4
 D:\new_cicids\5
 D:\new_cicids\6
 D:\new_cicids\7
+
+[ISCX2012]
+D:\iscx\train

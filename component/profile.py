@@ -28,20 +28,36 @@ class Profile:
             self.__table[attr].append(value)
         self.__flow_cnt += 1
 
-    def attr_info(self) -> str:
-        return ",".join(self.attr_list) + '\n'
+    def debug(self):
+        ret_str = self.__str_attr() + '\n'
+        for idx in range(self.__flow_cnt):
+            ret_str += self.__str_row(idx) + '\n'
+        return ret_str
 
-    def row_info(self, idx: int) -> str:
+    def __str_attr(self) -> str:
+        return ",".join(self.attr_list)
+
+    def __str_row(self, idx: int) -> str:
         print_row_values = []
         for attr in self.attr_list:
             print_row_values.append(str(self.__table[attr][idx]))
-        return ", ".join(print_row_values) + '\n'
+        return ",".join(print_row_values)
+
+    def get_info(self, num_flow=5) -> str:
+        ret_str = '####################################################################################\n'
+        ret_str += '# Profile Info (key: {}, total flows: {})\n'.format(self.profile_key, self.__flow_cnt)
+        ret_str += '# \n'
+        ret_str += '# Attribute list\n'
+        ret_str += '# {}\n'.format(self.__str_attr())
+        ret_str += '# \n'
+        ret_str += '# First {} flows\n'.format(num_flow)
+        for i in range(num_flow):
+            ret_str += '# {}\n'.format(self.__str_row(i))
+        ret_str += '####################################################################################\n'
+        return ret_str
 
     def __str__(self) -> str:
-        ret_str = self.attr_info()
-        for idx in range(self.__flow_cnt):
-            ret_str += self.row_info(idx)
-        return ret_str
+        return self.get_info()
 
     def __len__(self) -> int:
         return len(self.table)

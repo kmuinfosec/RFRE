@@ -77,6 +77,12 @@ class Profiler:
             raise IndexError(f"There is no '{index}' chunk")
         return self.__profile_index_inv[index]
 
+    def get_profile(self, profile_key: str) -> Profile:
+        return self[profile_key]
+
+    def get_profile_by_index(self, index: int) -> Profile:
+        return self[self.get_profile_key(index)]
+
     def __add_profile(self, profile_key):
         if profile_key not in self:
             new_pf = Profile(profile_key)
