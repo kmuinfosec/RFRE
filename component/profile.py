@@ -50,8 +50,8 @@ class Profile:
         ret_str += '# Attribute list\n'
         ret_str += '# {}\n'.format(self.__str_attr())
         ret_str += '# \n'
-        ret_str += '# First {} flows\n'.format(num_flow)
-        for i in range(num_flow):
+        ret_str += '# First {} flows\n'.format(min(self.__flow_cnt, num_flow))
+        for i in range(min(self.__flow_cnt, num_flow)):
             ret_str += '# {}\n'.format(self.__str_row(i))
         ret_str += '####################################################################################\n'
         return ret_str

@@ -13,8 +13,8 @@ cm = plt.get_cmap('tab20')
 
 def load_result_df(config: Config):
     result_info = {}
-    for file_name in os.listdir(config.result_dir):
-        result_csv_path = os.path.join(config.result_dir, file_name)
+    for file_name in os.listdir(config.path.result_dir):
+        result_csv_path = os.path.join(config.path.result_dir, file_name)
         test_df = pd.read_csv(result_csv_path)
         for row in test_df.itertuples():
             key = row.key

@@ -80,8 +80,8 @@ class FeatureExtractor:
         ret_str += '# Feature list\n'
         ret_str += '# {}\n'.format(self.__str_feature_list())
         ret_str += '# \n'
-        ret_str += '# First {} vectors\n'.format(num_vectors)
-        for i in range(num_vectors):
+        ret_str += '# First {} vectors\n'.format(min(len(self.profile_key_list), num_vectors))
+        for i in range(min(len(self.profile_key_list), num_vectors)):
             ret_str += '# {}\n'.format(self.__str_feature_vector(i))
         ret_str += '####################################################################################\n'
         return ret_str
