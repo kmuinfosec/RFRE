@@ -9,7 +9,6 @@ from component import rfre
 from ml.dataset import RFREDataset
 from ml.train import trainer, tester
 from experiments.stats import save_stats
-from experiments.scatter import draw_rce_scatter
 from utils import TQDM
 
 
@@ -63,4 +62,3 @@ if __name__ == '__main__':
     train(_config)
     test(_config)
     save_stats(_config)
-    draw_rce_scatter(_config)

@@ -1,75 +1,114 @@
 import os
-import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.metrics import roc_curve, auc
+from typing import Dict
+
 from config import Config
 from utils import get_time_window, TQDM
 
 
 def save_stats(config: Config):
-    key_rce_dict = {}
+    profile_rce_dict = {}
     for file_name in os.listdir(config.path.result_dir):
         result_csv_path = os.path.join(config.path.result_dir, file_name)
-        test_df = pd.read_csv(result_csv_path)
-        for row in test_df.itertuples():
-            key = row.key
-            rce = row.rce
-            key_rce_dict[key] = rce
+        with open(result_csv_path, 'r') as f:
+            lines = f.readlines()[1:]
 
-    score_df = []
+        for line in lines:
+            profile_key, rce = line.split(',')
+            profile_rce_dict[profile_key] = float(rce)
+
+    seq_num = 0
+    label_score_dict = {}
     for test_dir in TQDM(config.test_dir_list, desc="loading results for statistics"):
-        for file_name in os.listdir(test_dir):
-            file_path = os.path.join(test_dir, file_name)
-            current_df = pd.read_csv(file_path)
-            for row in current_df.itertuples():
-                window_start, window_end = get_time_window(row.ts, config.time_window)
-                if row.sa in config.inside_ip_set:
-                    key_ip = row.da
-                elif row.da in config.inside_ip_set:
-                    key_ip = row.sa
+        for csv_name in os.listdir(test_dir):
+            csv_path = os.path.join(test_dir, csv_name)
+            with open(csv_path, 'r') as f:
+                flows = f.readlines()[1:]
+
+            for flow in flows:
+                flow = flow.split(',')
+                sip, dip = flow[config.column_index['sip']], flow[config.column_index['dip']]
+                ws, we = get_time_window(flow[config.column_index['time_start']], config.time_window)
+                label = flow[config.column_index['label']].strip()
+                if label.lower().strip() == 'benign':
+                    label = 'benign'
+
+                if sip in config.inside_ip_set:
+                    profile_key = f'{dip}_{ws}_{we}'
+                elif dip in config.inside_ip_set:
+                    profile_key = f'{sip}_{ws}_{we}'
                 else:
                     continue
-                key = f'{key_ip}_{window_start}_{window_end}'
+                score = profile_rce_dict[profile_key]
 
-                score = key_rce_dict[key]
-                label = row.Label
-                score_df.append([key, score, label])
-    score_df = pd.DataFrame(score_df, columns=['key', 'rce', 'label'])
-    save_auc(score_df, config.path.auroc_path, config.path.roc_curve_path)
-    save_eval(score_df, config.path.threshold_path, config.path.eval_path)
+                if label not in label_score_dict:
+                    label_score_dict[label] = {'score_list': [], 'seq_num_list': []}
+                label_score_dict[label]['seq_num_list'].append(seq_num)
+                label_score_dict[label]['score_list'].append(score)
+                seq_num += 1
+
+    save_scatter_plot(label_score_dict, config.path.threshold_path, config.path.scatter_plot_path)
+    save_auc(label_score_dict, config.path.auroc_path, config.path.roc_curve_path)
+    save_eval(label_score_dict, config.path.threshold_path, config.path.eval_path)
 
 
-def save_auc(test_df, auroc_path, roc_curve_path):
+def save_auc(label_score_dict: Dict[str, Dict[str, list]], auroc_path, roc_curve_path):
     auc_csv = ['label,auc']
-    test_df.loc[test_df['label'].str.startswith('BruteForce'), 'label'] = 'BruteForce-SSH'
-    for label in test_df['label'].unique():
-        if label.lower() == 'benign':
-            continue
-        benign_df = test_df[test_df['label'].str.lower() == 'benign']
-        current_label_df = test_df[test_df['label'] == label]
-        total_df = pd.concat((benign_df, current_label_df), ignore_index=True)
-        total_df.loc[total_df['label'] == label, 'label'] = 1
-        total_df.loc[total_df['label'].str.lower() == 'benign', 'label'] = 0
-        fpr_list, tpr_list, threshold_list = roc_curve(total_df['label'].astype(int), total_df['rce'])
+    benign_scores = label_score_dict['benign']['score_list']
+    benign_labels = ['benign' for _ in range(len(benign_scores))]
 
+    total_scores = [] + benign_scores
+    total_labels = [] + benign_labels
+    for label, items in label_score_dict.items():
+        if label == 'benign':
+            continue
+        labels = ['positive' for _ in range(len(items['score_list']))]
+        scores = items['score_list']
+        total_scores += scores
+        total_labels += labels
+        fpr_list, tpr_list, threshold_list = roc_curve(benign_labels+labels, benign_scores+scores, pos_label='positive')
         auc_csv.append(f"{label},{auc(fpr_list, tpr_list)}")
 
-    benign_df = test_df[test_df['label'].str.lower() == 'benign']
-    attack_df = test_df[test_df['label'].str.lower() != 'benign']
-    total_df = pd.concat((benign_df, attack_df), ignore_index=True)
-    total_df.loc[total_df['label'].str.lower() != 'benign', 'label'] = 1
-    total_df.loc[total_df['label'].str.lower() == 'benign', 'label'] = 0
-    fpr_list, tpr_list, threshold_list = roc_curve(total_df['label'].astype(int), total_df['rce'])
+    fpr_list, tpr_list, threshold_list = roc_curve(total_labels, total_scores, pos_label='positive')
     auc_csv.append(f"total,{auc(fpr_list, tpr_list)}")
-    plot_roc_curve(fpr_list, tpr_list, roc_curve_path)
-
     with open(auroc_path, 'w', encoding='latin1') as f:
         f.write("\n".join(auc_csv))
 
+    plotting_roc_curve(fpr_list, tpr_list, roc_curve_path)
 
-def plot_roc_curve(fpr, tpr, roc_curve_path):
+
+def save_eval(label_score_dict: Dict[str, Dict[str, list]], threshold_path: str, eval_path: str):
+    with open(threshold_path, 'r') as f:
+        threshold = float(f.readlines()[-1])
+
+    tp, fp, tn, fn = 0, 0, 0, 0
+    for label, items in label_score_dict.items():
+        for score in items['score_list']:
+            if label == 'benign':
+                if score >= threshold:
+                    fp += 1
+                else:
+                    tn += 1
+            else:
+                if score >= threshold:
+                    tp += 1
+                else:
+                    fn += 1
+
+    acc = (tp + tn) / (tp + tn + fp + fn)
+    pre = tp / (tp + fp) if tp + fp else 0
+    rec = tp / (tp + fn) if tp + fn else 0
+    f1 = 2 * (pre * rec) / (pre + rec) if pre + rec else 0
+
+    eval_csv = f'tp,fp,tn,fn,acc,pre,rec,f1\n{tp},{fp},{tn},{fn},{acc},{pre},{rec},{f1}\n'
+    with open(eval_path, 'w') as f:
+        f.write(eval_csv)
+
+
+def plotting_roc_curve(fpr, tpr, roc_curve_path):
     font_size = 30
-    fig = plt.figure(figsize=(16, 9))
+    plt.figure(figsize=(16, 9))
     plt.plot(fpr, tpr, color='red', label='ROC')
     plt.plot([0, 1], [0, 1], color='green', linestyle='--')
     plt.xlabel('False Positive Rate', fontsize=font_size)
@@ -80,32 +119,32 @@ def plot_roc_curve(fpr, tpr, roc_curve_path):
     plt.clf()
 
 
-def save_eval(test_df, threshold_path, eval_path):
+def save_scatter_plot(label_score_dict: Dict[str, Dict[str, list]], threshold_path: str, scatter_plot_path: str):
+    font_size = 30
+    legend_font_size = 15
+    point_size = 90
+    num_colors = 20
+    cm = plt.get_cmap('tab20')
+
     with open(threshold_path, 'r') as f:
-        threshold = float(f.readlines()[-1])
+        threshold = float(f.readlines()[-1].strip())
 
-    detected_df = test_df[test_df['rce'] >= threshold]
-    undetected_df = test_df[test_df['rce'] < threshold]
+    fig = plt.figure(figsize=(16, 9))
+    ax = fig.add_subplot(111)
+    ax.set_prop_cycle(color=[cm(1. * i / num_colors) for i in range(num_colors)])
 
-    tp = len(detected_df[detected_df['label'].str.lower() != 'benign'])
-    fp = len(detected_df[detected_df['label'].str.lower() == 'benign'])
-
-    tn = len(undetected_df[undetected_df['label'].str.lower() == 'benign'])
-    fn = len(undetected_df[undetected_df['label'].str.lower() != 'benign'])
-
-    acc = (tp + tn) / (tp + tn + fp + fn)
-    pre = 0
-    if tp + fp != 0:
-        pre = tp / (tp + fp)
-    rec = 0
-    if tp + fn != 0:
-        rec = tp / (tp + fn)
-    f1 = 0
-    if pre + rec != 0:
-        f1 = 2 * (pre * rec) / (pre + rec)
-
-    eval_csv = ['tp,fp,tn,fn,acc,pre,rec,f1']
-    eval_csv.append(f"{tp},{fp},{tn},{fn},{acc},{pre},{rec},{f1}")
-
-    with open(eval_path, 'w') as f:
-        f.write("\n".join(eval_csv))
+    ax.scatter(label_score_dict['benign']['seq_num_list'], label_score_dict['benign']['score_list'], label='benign', alpha=0.25)
+    for label, items in label_score_dict.items():
+        if label == 'benign':
+            continue
+        plt.scatter(items['seq_num_list'], items['score_list'], label=label, s=point_size)
+    plt.axhline(y=threshold, color='r', linestyle='-')
+    plt.yscale('log')
+    plt.ylim((10e-7, 10e+1))
+    plt.ylabel("Reconstruction Error", fontsize=font_size)
+    plt.xticks(fontsize=font_size)
+    plt.yticks(fontsize=font_size)
+    plt.legend(fontsize=legend_font_size, loc='upper left', ncol=2)
+    plt.tight_layout()
+    plt.savefig(scatter_plot_path)
+    plt.clf()
